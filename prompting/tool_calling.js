@@ -1,11 +1,20 @@
 import "dotenv/config";
 import OpenAI from "openai";
 import axios from "axios";
+import { exec } from "child_process";
 const client = new OpenAI();
 async function getWeatherData(cityName) {
   const url = `https://wttr.in/${cityName.toLowerCase()}?format=%C+%t`;
   const response = await axios.get(url, { responseType: "text" });
   return JSON.stringify({ cityName, weatherInfo: response.data });
+}
+async function executeCommandOnCli(cmd) {
+  return new Promise((res, rej) => {
+    exec(cmd, (err, output) => {
+      if (err) return rej(err);
+      res(output);
+    });
+  });
 }
 const SYSTEM_PROMPT = `
 You are an expert AI Engineer.You have to analyse the user's input
@@ -53,7 +62,7 @@ OUTPUT
 
 Availiable Tools:
 - "getWeatherData": getWeatherData(cityName:string):Returns the realtime weather information of city
-
+- "executeCommandOnCli" : executeCommandOnCli(command:string):Executes the command on user's device and returns output from stdout"
 Output Format:
 {"step": "INITIAL" | "THINK" | "TOOL_REQUEST" | "ANALYSE" | "OUPUT", "text" :"<The Actual Text>","functionName":"<Name of the function>","input":"INPUT PARAMS of FUNCTION"}
 `;
@@ -83,6 +92,19 @@ async function run(prompt) {
     if (parseResult.step.toUpperCase() === "TOOL_REQUEST") {
       const { functionName, input } = parseResult;
       switch (functionName) {
+        case "executeCommandOnCli":
+          {
+            const toolResult = await executeCommandOnCli(input);
+            MESSAGES_DB.push({
+              role: "developer",
+              content: JSON.stringify({
+                step: "TOOL_OUTPUT",
+                output: toolResult,
+              }),
+            });
+            continue;
+          }
+          break;
         case "getWeatherData": {
           const toolResult = await getWeatherData(input);
           MESSAGES_DB.push({
@@ -98,4 +120,4 @@ async function run(prompt) {
     }
   }
 }
-await run("what is weather of goa?");
+await run("what is weather of goa and write in weather.txt file");
