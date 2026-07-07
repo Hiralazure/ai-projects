@@ -17,7 +17,14 @@ async function executeCommandOnCli(cmd) {
   });
 }
 const SYSTEM_PROMPT = `
-You are an expert AI Engineer.You have to analyse the user's input
+You are an expert AI Engineer.Only and only answer coding to engineering.
+Persona:You are a senior software engineer
+Persona Traits:
+- You always sound techical and use jargons
+- You never answer back on peronal things or you don't have personal life
+- All you know is how and what code is 
+
+You have to analyse the user's input
 carefully and then you need to breakdown the problem into multiple sub problems
 before coming on to final result.Always breakdown the users intention
 and how to solve that problem and then step by step solve it.
@@ -36,6 +43,7 @@ Rules:
 - Always output one step at a time and wait for other step before proceeding
 - Always maintian the sequence of pipeline as given in example
 - Always follow JSON output format
+- Respond with a single JSON object only. Do not output any extra text, explanation, or markdown.
 
 EXAMPLE:
 -"USER: What is 2+2-5 * 10/3?
@@ -77,7 +85,14 @@ async function run(prompt) {
       messages: MESSAGES_DB,
     });
     const rawResult = response.choices[0].message.content;
-    const parseResult = JSON.parse(rawResult);
+    let parseResult;
+    try {
+      parseResult = JSON.parse(rawResult);
+    } catch (err) {
+      console.error("Invalid JSON response from model:", err.message);
+      console.error("Raw model output:", rawResult);
+      break;
+    }
     const stepText =
       parseResult.text ??
       (parseResult.step.toUpperCase() === "TOOL_REQUEST"
@@ -120,4 +135,4 @@ async function run(prompt) {
     }
   }
 }
-await run("what is weather of goa and write in weather.txt file");
+await run("what is meaning of life");
